@@ -24,7 +24,7 @@ def multiplier(act, suffer=False):
         )
         effort = act["suffer_score"]
         for min, max, mul in efforts:
-            if effort >= min and effort < max:
+            if max < effort >= min:
                 return mul
         return 1.0
 
@@ -38,9 +38,20 @@ def multiplier(act, suffer=False):
 def week(date):
     """Return the week in which the activity falls, 0 if outside the competition."""
     for i, (start, end) in enumerate(weeks):
-        if date >= start and date <= end:
+        if end >= date >= start:
             return i
     return None
+
+def activities():
+    """Return the an activity and it's challenge week."""
+    res = subprocess.check_output(["gravl", "-c", "strava", "activities", "-N", "100"], text=True)
+    for activity in (x for x in res.split(os.linesep) if x):
+        act = json.loads(activity)
+        date = dateutil.parser.parse(act["start_date"]).date()
+        wk = week(date)
+        if wk is None:
+            continue
+        yield wk, act
 
 if __name__ == "__main__":
     logHandler = logging.StreamHandler()
@@ -51,27 +62,20 @@ if __name__ == "__main__":
     logger.setLevel(logging.INFO)
 
     n = len(weeks)
-    score    = dict((x, 0) for x in range(n))
+    score = dict((x, 0) for x in range(n))
     calories = dict((x, 0) for x in range(n))
 
-    # query strava activities as json lines, parse out the interesting bits
-    activities = subprocess.check_output(["gravl", "-c", "strava", "activities", "-N", "100"], text=True)
-    for activity in (x for x in activities.split(os.linesep) if x):
-        act = json.loads(activity)
-        date = dateutil.parser.parse(act["start_date"]).date()
-        wk = week(date)
-        if wk is None:
-            continue
-
-        logger.info({"message":"activity", "name": act["name"]})
-
+    for wk, act in activities():
         aid = act["id"]
         mult = multiplier(act)
         minutes = act["moving_time"] / 60.0
-        score[wk] += round(minutes * mult)
 
-        cal = subprocess.check_output(["gravl", "-c", "strava", "activity", str(aid)], text=True)
-        act = json.loads(cal)
+        logger.info({"message":"activity", "name": act["name"], "multiplier": mult})
+
+        act = subprocess.check_output(["gravl", "-c", "strava", "activity", str(aid)], text=True)
+        act = json.loads(act)
+
+        score[wk] += round(minutes * mult)
         calories[wk] += round(act["calories"])
 
     print(json.dumps({"score": score, "calories":calories}))
