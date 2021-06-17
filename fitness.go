@@ -30,7 +30,7 @@ type Week struct {
 var _multipliers = map[string]float64{
 	"Hike": 1.75,
 	"Ride": 1.75,
-	"Run":  1.50,
+	"Run":  1.75,
 	"Walk": 1.00,
 }
 
