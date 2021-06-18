@@ -27,13 +27,6 @@ type Week struct {
 	Activities []*Activity `json:"activities"`
 }
 
-var _multipliers = map[string]float64{
-	"Hike": 1.75,
-	"Ride": 1.75,
-	"Run":  1.75,
-	"Walk": 1.00,
-}
-
 var _weeks = [][]time.Time{
 	{
 		time.Date(2021, time.June, 07, 0, 0, 0, 0, time.UTC),
@@ -54,11 +47,28 @@ var _weeks = [][]time.Time{
 }
 
 func score(act *strava.Activity) int {
-	val, ok := _multipliers[act.Type]
-	if !ok {
+	var val float64
+	movingTime := time.Minute * time.Duration(math.Ceil(act.MovingTime.Minutes()))
+	switch act.Type {
+	case "Hike":
+		val = 1.75
+		if movingTime > 5*time.Hour {
+			val = 2.0
+		}
+	case "Ride":
+		val = 1.75
+		if movingTime > 4*time.Hour {
+			val = 2.0
+		}
+	case "Run":
+		val = 1.75
+		if movingTime > 2*time.Hour {
+			val = 2.0
+		}
+	default:
 		val = 1.0
 	}
-	return int(math.Round(act.MovingTime.Minutes() * val))
+	return int(movingTime.Minutes() * val)
 }
 
 func week(act *strava.Activity) int {

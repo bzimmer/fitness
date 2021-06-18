@@ -1,0 +1,78 @@
+<html lang="en">
+
+<head>
+	<style>
+		table {
+			margin: 0 auto;
+			font-size: large;
+			border: 1px solid black;
+			font-family: 'Courier';
+		}
+
+		h1 {
+			text-align: center;
+			color: #006600;
+			font-size: xx-large;
+			font-family: 'Courier';
+		}
+
+		td {
+			background-color: #E4F5D4;
+			border: 1px solid black;
+		}
+
+		th,
+		td {
+			font-weight: bold;
+			border: 1px solid black;
+			padding: 10px;
+			text-align: center;
+		}
+
+		td {
+			font-weight: lighter;
+		}
+	</style>
+
+	<meta charset="UTF-8">
+	<title>Fitness Challenge</title>
+
+	<!-- INCLUDING JQUERY-->
+	<script src="https://code.jquery.com/jquery-3.5.1.js">
+	</script>
+</head>
+
+<body>
+	<section>
+		<h1>Fitness Challenge</h1>
+
+		<table id='table'>
+			<tr>
+				<th>Week</th>
+				<th>Score</th>
+				<th>Calories</th>
+				<th>Activities</th>
+			</tr>
+
+			<script>
+				$(document).ready(function () {
+					$.getJSON("/scoreboard", function (data) {
+						data.sort((a, b) => (a.week > b.week) ? 1 : -1)
+						var week = '';
+						$.each(data, function (key, value) {
+							week += '<tr>';
+							week += '<td>' + value.week + '</td>';
+							week += '<td>' + value.score + '</td>';
+							week += '<td>' + value.calories + '</td>';
+							week += '<td>' + value.activities.length + '</td>';
+							week += '</tr>';
+						});
+						$('#table').append(week);
+					});
+				});
+			</script>
+		</table>
+	</section>
+</body>
+
+</html>
