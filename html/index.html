@@ -45,7 +45,6 @@
 <body>
 	<section>
 		<h1>Fitness Challenge</h1>
-
 		<table id='table'>
 			<tr>
 				<th>Week</th>
@@ -53,26 +52,26 @@
 				<th>Calories</th>
 				<th>Activities</th>
 			</tr>
-
-			<script>
-				$(document).ready(function () {
-					$.getJSON("/scoreboard", function (data) {
-						data.sort((a, b) => (a.week > b.week) ? 1 : -1)
-						var week = '';
-						$.each(data, function (key, value) {
-							week += '<tr>';
-							week += '<td>' + value.week + '</td>';
-							week += '<td>' + value.score + '</td>';
-							week += '<td>' + value.calories + '</td>';
-							week += '<td>' + value.activities.length + '</td>';
-							week += '</tr>';
-						});
-						$('#table').append(week);
-					});
-				});
-			</script>
 		</table>
 	</section>
 </body>
+
+<script>
+	$(document).ready(function () {
+		$.getJSON("/scoreboard", function (data) {
+			data.sort((a, b) => (a.week > b.week) ? 1 : -1)
+			$.each(data, function (key, value) {
+				var week = '';
+				week += '<tr>';
+				week += '<td>' + value.week + '</td>';
+				week += '<td>' + value.score + '</td>';
+				week += '<td>' + value.calories + '</td>';
+				week += '<td>' + value.activities.length + '</td>';
+				week += '</tr>';
+				$('#table').append(week);
+			});
+		});
+	});
+</script>
 
 </html>
