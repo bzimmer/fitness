@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -19,7 +20,6 @@ import (
 
 	"github.com/bzimmer/fitness"
 	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
-	"github.com/bzimmer/gravl/pkg/web"
 )
 
 type Credentials struct {
@@ -54,7 +54,7 @@ func token(n int) (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-func newRouter(c *cli.Context) (*http.ServeMux, error) {
+func newRouter(c *cli.Context) (*gin.Engine, error) {
 	creds, err := credentials(c)
 	if err != nil {
 		return nil, err
@@ -67,40 +67,39 @@ func newRouter(c *cli.Context) (*http.ServeMux, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	address := fmt.Sprintf("%s:%d", c.String("origin"), c.Int("port"))
 	config := &oauth2.Config{
 		ClientID:     creds.ClientID,
 		ClientSecret: creds.ClientSecret,
 		Scopes:       []string{"read_all,profile:read_all,activity:read_all"},
-		RedirectURL:  fmt.Sprintf("%s/callback", address),
+		RedirectURL:  fmt.Sprintf("%s/auth/callback", address),
 		Endpoint:     strava.Endpoint}
-	handle := web.NewLogHandler(log.Logger)
-	mux := http.NewServeMux()
-	mux.Handle("/", handle(http.FileServer(http.FS(filesystem))))
-	mux.Handle("/login", handle(fitness.AuthHandler(config, state)))
-	mux.Handle("/callback", handle(fitness.AuthCallbackHandler(config, state)))
-	mux.HandleFunc("/scoreboard", func(w http.ResponseWriter, r *http.Request) {
+
+	r := gin.Default()
+	r.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusTemporaryRedirect, "/html/index.html")
+	})
+	r.StaticFS("/html", http.FS(filesystem))
+	r.GET("/auth/login", fitness.AuthHandler(config, state))
+	r.GET("/auth/callback", fitness.AuthCallbackHandler(config, state))
+	r.GET("/scoreboard", func(c *gin.Context) {
 		client, err := strava.NewClient(
 			strava.WithTokenCredentials(creds.AccessToken, creds.RefreshToken, time.Now().Add(-1*time.Minute)),
 			strava.WithClientCredentials(creds.ClientID, creds.ClientSecret),
-			strava.WithAutoRefresh(c.Context))
+			strava.WithAutoRefresh(c.Request.Context()))
 		if err != nil {
-			http.Error(w, "State invalid", http.StatusBadRequest)
+			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		board, err := fitness.Scoreboard(c.Context, client)
+		board, err := fitness.Scoreboard(c.Request.Context(), client)
 		if err != nil {
-			http.Error(w, "Failed scoreboard", http.StatusBadRequest)
+			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		b, err := json.MarshalIndent(board, "", " ")
-		if err != nil {
-			http.Error(w, "Failed to marshal", http.StatusBadRequest)
-			return
-		}
-		fmt.Fprintf(w, "%s\n", b)
+		c.IndentedJSON(http.StatusOK, board)
 	})
-	return mux, nil
+	return r, nil
 }
 
 var serveCommand = &cli.Command{

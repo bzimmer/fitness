@@ -1,62 +1,62 @@
 package fitness
 
 import (
-	"encoding/json"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 )
 
-type TokenCallback func(w http.ResponseWriter, r *http.Request, t *oauth2.Token)
+type TokenCallback func(*gin.Context, *oauth2.Token)
 
-func tokenCallback(w http.ResponseWriter, r *http.Request, t *oauth2.Token) {
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(t); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+func tokenCallback(c *gin.Context, t *oauth2.Token) {
+	c.IndentedJSON(http.StatusOK, t)
 }
 
 // AuthHandler redirects to the oauth provider's credential acceptance page
-func AuthHandler(c *oauth2.Config, state string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		u := c.AuthCodeURL(state)
-		http.Redirect(w, r, u, http.StatusFound)
+func AuthHandler(cfg *oauth2.Config, state string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		u := cfg.AuthCodeURL(state)
+		c.Redirect(http.StatusFound, u)
 	}
 }
 
 // AuthCallbackHandler receives the callback from the oauth provider with the credentials
-func AuthCallbackHandler(c *oauth2.Config, state string) http.HandlerFunc {
+func AuthCallbackHandler(c *oauth2.Config, state string) gin.HandlerFunc {
 	return AuthCallbackHandlerF(c, state, tokenCallback)
 }
 
+type Callback struct {
+	State string `form:"state" binding:"required"`
+	Code  string `form:"code" binding:"required"`
+}
+
 // AuthCallbackHandler receives the callback from the oauth provider with the credentials
-func AuthCallbackHandlerF(c *oauth2.Config, state string, f TokenCallback) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if err := r.ParseForm(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+func AuthCallbackHandlerF(cfg *oauth2.Config, state string, f TokenCallback) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var res Callback
+		if err := c.ShouldBind(&res); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		s := r.Form.Get("state")
-		if s != state {
-			http.Error(w, "State invalid", http.StatusBadRequest)
+		if res.State != state {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid state"})
 			return
 		}
 
-		code := r.Form.Get("code")
+		code := res.Code
 		if code == "" {
-			http.Error(w, "Code not found", http.StatusBadRequest)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "code is nil"})
 			return
 		}
 
-		token, err := c.Exchange(r.Context(), code)
+		token, err := cfg.Exchange(c.Request.Context(), code)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		f(w, r, token)
+		f(c, token)
 	}
 }
