@@ -6,8 +6,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
-	"io/fs"
 	"net/http"
 	"os"
 	"time"
@@ -63,7 +63,8 @@ func newRouter(c *cli.Context) (*gin.Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	filesystem, err := fs.Sub(fitness.Content, "html")
+
+	tmpl, err := template.ParseFS(fitness.Content, "templates/index.tmpl")
 	if err != nil {
 		return nil, err
 	}
@@ -77,10 +78,10 @@ func newRouter(c *cli.Context) (*gin.Engine, error) {
 		Endpoint:     strava.Endpoint}
 
 	r := gin.Default()
+	r.SetHTMLTemplate(tmpl)
 	r.GET("/", func(c *gin.Context) {
-		c.Redirect(http.StatusTemporaryRedirect, "/html/index.html")
+		c.HTML(http.StatusOK, "index.tmpl", nil)
 	})
-	r.StaticFS("/html", http.FS(filesystem))
 	r.GET("/auth/login", fitness.AuthHandler(config, state))
 	r.GET("/auth/callback", fitness.AuthCallbackHandler(config, state))
 	r.GET("/scoreboard", func(c *gin.Context) {

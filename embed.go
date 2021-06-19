@@ -2,5 +2,5 @@ package fitness
 
 import "embed"
 
-//go:embed html/index.html html/challenge.json
+//go:embed templates/index.tmpl
 var Content embed.FS
