@@ -11,69 +11,54 @@ import (
 	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
 )
 
-var _weeks = [][]time.Time{
-	{
-		time.Date(2021, time.June, 07, 0, 0, 0, 0, time.UTC),
-		time.Date(2021, time.June, 14, 0, 0, 0, 0, time.UTC),
-	},
-	{
-		time.Date(2021, time.June, 14, 0, 0, 0, 0, time.UTC),
-		time.Date(2021, time.June, 21, 0, 0, 0, 0, time.UTC),
-	},
-	{
-		time.Date(2021, time.June, 21, 0, 0, 0, 0, time.UTC),
-		time.Date(2021, time.June, 28, 0, 0, 0, 0, time.UTC),
-	},
-	{
-		time.Date(2021, time.June, 28, 0, 0, 0, 0, time.UTC),
-		time.Date(2021, time.July, 05, 0, 0, 0, 0, time.UTC),
-	},
+type Scoreboard struct {
+	config *Config
 }
 
-func score(act *strava.Activity) int {
+func NewScoreboard(config *Config) *Scoreboard {
+	return &Scoreboard{config: config}
+}
+
+func (b *Scoreboard) score(act *strava.Activity) int {
 	var val float64
 	movingTime := time.Minute * time.Duration(math.Ceil(act.MovingTime.Minutes()))
 	switch act.Type {
-	case "Hike":
+	case "Hike", "Ride":
 		val = 1.75
-		if movingTime > 5*time.Hour {
-			val = 2.0
-		}
-	case "Ride":
-		val = 1.75
-		if movingTime > 4*time.Hour {
-			val = 2.0
-		}
 	case "Run":
-		val = 1.75
-		if movingTime > 2*time.Hour {
-			val = 2.0
-		}
+		val = 1.50
 	default:
 		val = 1.0
+	}
+	for _, epic := range b.config.Epic {
+		if epic.Type == act.Type {
+			if movingTime > time.Minute*time.Duration(epic.Minutes) {
+				val = epic.Multiplier
+			}
+		}
 	}
 	return int(movingTime.Minutes() * val)
 }
 
-func week(act *strava.Activity) int {
-	for i := 0; i < len(_weeks); i++ {
-		if act.StartDate.After(_weeks[i][0]) && act.StartDate.Before(_weeks[i][1]) {
+func (b *Scoreboard) week(act *strava.Activity) int {
+	for i, wk := range b.config.Weeks {
+		if act.StartDate.After(wk.Start) && act.StartDate.Before((wk.End)) {
 			return i + 1
 		}
 	}
 	return 0
 }
 
-func calories(act *strava.Activity) int {
-	switch act.ID {
-	case 5497755660:
-		// fenix 6x didn't sync with wahoo bolt so the ride only shows 249 calories -- bah!
-		return int(3594)
+func (b *Scoreboard) calories(act *strava.Activity) int {
+	for _, cal := range b.config.Calories {
+		if cal.ID == act.ID {
+			return cal.Override
+		}
 	}
 	return int(act.Calories)
 }
 
-func scoreboard(acts []*Activity) []*Week {
+func (b *Scoreboard) scoreboard(acts []*Activity) []*Week {
 	// group all activities into weeks
 	w := make(map[int][]*Activity)
 	for _, act := range acts {
@@ -99,7 +84,7 @@ func scoreboard(acts []*Activity) []*Week {
 }
 
 // Scoreboard returns weekly scores and calories for the current athlete
-func Scoreboard(c context.Context, client *strava.Client) ([]*Week, error) {
+func (b *Scoreboard) Scoreboard(c context.Context, client *strava.Client) ([]*Week, error) {
 	ctx, cancel := context.WithTimeout(c, 2*time.Minute)
 	defer cancel()
 
@@ -113,12 +98,12 @@ func Scoreboard(c context.Context, client *strava.Client) ([]*Week, error) {
 			return nil, ctx.Err()
 		case res, ok = <-acts:
 			if !ok {
-				return scoreboard(scores), nil
+				return b.scoreboard(scores), nil
 			}
 			if res.Err != nil {
 				return nil, res.Err
 			}
-			wk := week(res.Activity)
+			wk := b.week(res.Activity)
 			if wk == 0 {
 				continue
 			}
@@ -132,8 +117,8 @@ func Scoreboard(c context.Context, client *strava.Client) ([]*Week, error) {
 				Type:     act.Type,
 				Name:     act.Name,
 				Week:     wk,
-				Score:    score(act),
-				Calories: calories(act),
+				Score:    b.score(act),
+				Calories: b.calories(act),
 			})
 		}
 	}

@@ -1,0 +1,17 @@
+{
+    "weeks": [
+        {"start": "2021-06-07T00:00:00Z", "end": "2021-06-14T00:00:00Z"},
+        {"start": "2021-06-14T00:00:00Z", "end": "2021-06-21T00:00:00Z"},
+        {"start": "2021-06-21T00:00:00Z", "end": "2021-06-28T00:00:00Z"},
+        {"start": "2021-06-28T00:00:00Z", "end": "2021-07-05T00:00:00Z"}
+    ],
+    "epic": [
+        {"type": "Hike", "minutes": 240, "multiplier": 2.0},
+        {"type": "Ride", "minutes": 240, "multiplier": 2.0},
+        {"type": "Walk", "minutes": 180, "multiplier": 2.0},
+        {"type": "Run",  "minutes": 120, "multiplier": 2.0}
+    ],
+    "calories": [
+        {"id":5497755660, "override":3594}
+    ]
+}

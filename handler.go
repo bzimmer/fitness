@@ -5,31 +5,34 @@ import (
 	"time"
 
 	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 )
 
-type TokenCallback func(*gin.Context, *oauth2.Token)
-
-func tokenCallback(c *gin.Context, t *oauth2.Token) {
-	c.IndentedJSON(http.StatusOK, t)
-}
-
-// AuthHandler redirects to the oauth provider's credential acceptance page
-func AuthHandler(cfg *oauth2.Config, state string) gin.HandlerFunc {
+// LoginHandler redirects to the oauth provider's credential acceptance page
+func LoginHandler(cfg *oauth2.Config, state string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		u := cfg.AuthCodeURL(state)
 		c.Redirect(http.StatusFound, u)
 	}
 }
 
-// AuthCallbackHandler receives the callback from the oauth provider with the credentials
-func AuthCallbackHandler(c *oauth2.Config, state string) gin.HandlerFunc {
-	return AuthCallbackHandlerF(c, state, tokenCallback)
+// LogoutHandler removes the token from the session
+func LogoutHandler(cfg *oauth2.Config, state string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		session := sessions.Default(c)
+		session.Clear()
+		if err := session.Save(); err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		c.Redirect(http.StatusTemporaryRedirect, "/")
+	}
 }
 
 // AuthCallbackHandler receives the callback from the oauth provider with the credentials
-func AuthCallbackHandlerF(cfg *oauth2.Config, state string, f TokenCallback) gin.HandlerFunc {
+func AuthCallbackHandler(cfg *oauth2.Config, state string) gin.HandlerFunc {
 	type form struct {
 		State string `form:"state" binding:"required"`
 		Code  string `form:"code" binding:"required"`
@@ -58,21 +61,31 @@ func AuthCallbackHandlerF(cfg *oauth2.Config, state string, f TokenCallback) gin
 			return
 		}
 
-		f(c, token)
+		session := sessions.Default(c)
+		session.Set("token", token.RefreshToken)
+		if err := session.Save(); err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		c.Redirect(http.StatusTemporaryRedirect, "/")
 	}
 }
 
-func ScoreboardHandler(creds *Credentials) gin.HandlerFunc {
+func ScoreboardHandler(clientID, clientSecret string, config *Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		session := sessions.Default(c)
+		token := session.Get("token").(string)
 		client, err := strava.NewClient(
-			strava.WithTokenCredentials(creds.AccessToken, creds.RefreshToken, time.Now().Add(-1*time.Minute)),
-			strava.WithClientCredentials(creds.ClientID, creds.ClientSecret),
+			strava.WithTokenCredentials(token, token, time.Now().Add(-1*time.Minute)),
+			strava.WithClientCredentials(clientID, clientSecret),
 			strava.WithAutoRefresh(c.Request.Context()))
 		if err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		board, err := Scoreboard(c.Request.Context(), client)
+		sb := NewScoreboard(config)
+		board, err := sb.Scoreboard(c.Request.Context(), client)
 		if err != nil {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return

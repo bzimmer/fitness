@@ -12,6 +12,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -22,7 +24,7 @@ import (
 	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
 )
 
-func credentials(c *cli.Context) (*fitness.Credentials, error) {
+func config(c *cli.Context) (*fitness.Config, error) {
 	fp, err := os.Open(c.String("config"))
 	if err != nil {
 		return nil, err
@@ -30,12 +32,12 @@ func credentials(c *cli.Context) (*fitness.Credentials, error) {
 	defer fp.Close()
 	val, _ := io.ReadAll(fp)
 
-	var creds fitness.Credentials
-	err = json.Unmarshal(val, &creds)
+	var cfg fitness.Config
+	err = json.Unmarshal(val, &cfg)
 	if err != nil {
 		return nil, err
 	}
-	return &creds, nil
+	return &cfg, nil
 }
 
 // token produces a random token of length `n`
@@ -48,7 +50,7 @@ func token(n int) (string, error) {
 }
 
 func newRouter(c *cli.Context) (*gin.Engine, error) {
-	creds, err := credentials(c)
+	cfg, err := config(c)
 	if err != nil {
 		return nil, err
 	}
@@ -64,20 +66,29 @@ func newRouter(c *cli.Context) (*gin.Engine, error) {
 
 	address := fmt.Sprintf("%s:%d", c.String("origin"), c.Int("port"))
 	config := &oauth2.Config{
-		ClientID:     creds.ClientID,
-		ClientSecret: creds.ClientSecret,
+		ClientID:     c.String("client-id"),
+		ClientSecret: c.String("client-secret"),
 		Scopes:       []string{"read_all,profile:read_all,activity:read_all"},
 		RedirectURL:  fmt.Sprintf("%s/auth/callback", address),
 		Endpoint:     strava.Endpoint}
 
 	r := gin.Default()
+	store := cookie.NewStore([]byte("secret"))
+	r.Use(sessions.Sessions("default", store))
 	r.SetHTMLTemplate(tmpl)
 	r.GET("/", func(c *gin.Context) {
+		session := sessions.Default(c)
+		if session.Get("token") == nil {
+			c.Redirect(http.StatusTemporaryRedirect, "/auth/login")
+			return
+		}
 		c.HTML(http.StatusOK, "index.html", nil)
 	})
-	r.GET("/auth/login", fitness.AuthHandler(config, state))
+	r.GET("/auth/login", fitness.LoginHandler(config, state))
+	r.GET("/auth/logout", fitness.LogoutHandler(config, state))
 	r.GET("/auth/callback", fitness.AuthCallbackHandler(config, state))
-	r.GET("/scoreboard", fitness.ScoreboardHandler(creds))
+	r.GET("/scoreboard", fitness.ScoreboardHandler(
+		config.ClientID, config.ClientSecret, cfg))
 	return r, nil
 }
 
@@ -107,34 +118,6 @@ var serveCommand = &cli.Command{
 	},
 }
 
-var listCommand = &cli.Command{
-	Name:  "list",
-	Usage: "List",
-	Action: func(c *cli.Context) error {
-		creds, err := credentials(c)
-		if err != nil {
-			return err
-		}
-		client, err := strava.NewClient(
-			strava.WithTokenCredentials(creds.AccessToken, creds.RefreshToken, time.Now().Add(-1*time.Minute)),
-			strava.WithClientCredentials(creds.ClientID, creds.ClientSecret),
-			strava.WithAutoRefresh(c.Context))
-		if err != nil {
-			return err
-		}
-		board, err := fitness.Scoreboard(c.Context, client)
-		if err != nil {
-			return err
-		}
-		b, err := json.MarshalIndent(board, "", " ")
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Fprintf(c.App.Writer, "%s\n", b)
-		return err
-	},
-}
-
 func main() {
 	app := &cli.App{
 		Name:     "fitness",
@@ -142,10 +125,22 @@ func main() {
 		Usage:    "Fitness Challenge",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
+				Name:     "client-id",
+				Required: true,
+				Usage:    "client id",
+				EnvVars:  []string{"STRAVA_CLIENT_ID"},
+			},
+			&cli.StringFlag{
+				Name:     "client-secret",
+				Required: true,
+				Usage:    "client secret",
+				EnvVars:  []string{"STRAVA_CLIENT_SECRET"},
+			},
+			&cli.StringFlag{
 				Name:     "config",
 				Aliases:  []string{"c"},
 				Required: true,
-				Usage:    "file with strava credentials",
+				Usage:    "file with configuration",
 			},
 		},
 		ExitErrHandler: func(c *cli.Context, err error) {
@@ -168,7 +163,6 @@ func main() {
 			return nil
 		},
 		Commands: []*cli.Command{
-			listCommand,
 			serveCommand,
 		},
 	}
