@@ -11,22 +11,6 @@ import (
 	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
 )
 
-type Activity struct {
-	ID       int64  `json:"id"`
-	Type     string `json:"type"`
-	Name     string `json:"name"`
-	Week     int    `json:"week"`
-	Score    int    `json:"score"`
-	Calories int    `json:"calories"`
-}
-
-type Week struct {
-	Week       int         `json:"week"`
-	Score      int         `json:"score"`
-	Calories   int         `json:"calories"`
-	Activities []*Activity `json:"activities"`
-}
-
 var _weeks = [][]time.Time{
 	{
 		time.Date(2021, time.June, 07, 0, 0, 0, 0, time.UTC),
@@ -80,7 +64,16 @@ func week(act *strava.Activity) int {
 	return 0
 }
 
-func board(acts []*Activity) []*Week {
+func calories(act *strava.Activity) int {
+	switch act.ID {
+	case 5497755660:
+		// fenix 6x didn't sync with wahoo bolt so the ride only shows 249 calories -- bah!
+		return int(3594)
+	}
+	return int(act.Calories)
+}
+
+func scoreboard(acts []*Activity) []*Week {
 	// group all activities into weeks
 	w := make(map[int][]*Activity)
 	for _, act := range acts {
@@ -89,15 +82,15 @@ func board(acts []*Activity) []*Week {
 	// summarize score and calories
 	var res []*Week
 	for wk, acts := range w {
-		var calories, score int
+		var cal, score int
 		for _, act := range acts {
 			score += act.Score
-			calories += act.Calories
+			cal += act.Calories
 		}
 		m := &Week{
 			Week:       wk,
 			Score:      score,
-			Calories:   calories,
+			Calories:   cal,
 			Activities: acts,
 		}
 		res = append(res, m)
@@ -120,7 +113,7 @@ func Scoreboard(c context.Context, client *strava.Client) ([]*Week, error) {
 			return nil, ctx.Err()
 		case res, ok = <-acts:
 			if !ok {
-				return board(scores), nil
+				return scoreboard(scores), nil
 			}
 			if res.Err != nil {
 				return nil, res.Err
@@ -140,7 +133,7 @@ func Scoreboard(c context.Context, client *strava.Client) ([]*Week, error) {
 				Name:     act.Name,
 				Week:     wk,
 				Score:    score(act),
-				Calories: int(act.Calories),
+				Calories: calories(act),
 			})
 		}
 	}

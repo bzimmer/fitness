@@ -22,14 +22,7 @@ import (
 	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
 )
 
-type Credentials struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-}
-
-func credentials(c *cli.Context) (*Credentials, error) {
+func credentials(c *cli.Context) (*fitness.Credentials, error) {
 	fp, err := os.Open(c.String("config"))
 	if err != nil {
 		return nil, err
@@ -37,7 +30,7 @@ func credentials(c *cli.Context) (*Credentials, error) {
 	defer fp.Close()
 	val, _ := io.ReadAll(fp)
 
-	var creds Credentials
+	var creds fitness.Credentials
 	err = json.Unmarshal(val, &creds)
 	if err != nil {
 		return nil, err
@@ -64,7 +57,7 @@ func newRouter(c *cli.Context) (*gin.Engine, error) {
 		return nil, err
 	}
 
-	tmpl, err := template.ParseFS(fitness.Content, "templates/index.tmpl")
+	tmpl, err := template.ParseFS(fitness.Content, "templates/index.html")
 	if err != nil {
 		return nil, err
 	}
@@ -80,26 +73,11 @@ func newRouter(c *cli.Context) (*gin.Engine, error) {
 	r := gin.Default()
 	r.SetHTMLTemplate(tmpl)
 	r.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.tmpl", nil)
+		c.HTML(http.StatusOK, "index.html", nil)
 	})
 	r.GET("/auth/login", fitness.AuthHandler(config, state))
 	r.GET("/auth/callback", fitness.AuthCallbackHandler(config, state))
-	r.GET("/scoreboard", func(c *gin.Context) {
-		client, err := strava.NewClient(
-			strava.WithTokenCredentials(creds.AccessToken, creds.RefreshToken, time.Now().Add(-1*time.Minute)),
-			strava.WithClientCredentials(creds.ClientID, creds.ClientSecret),
-			strava.WithAutoRefresh(c.Request.Context()))
-		if err != nil {
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-		board, err := fitness.Scoreboard(c.Request.Context(), client)
-		if err != nil {
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-		c.IndentedJSON(http.StatusOK, board)
-	})
+	r.GET("/scoreboard", fitness.ScoreboardHandler(creds))
 	return r, nil
 }
 
