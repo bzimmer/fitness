@@ -31,7 +31,7 @@ func LogoutHandler(cfg *oauth2.Config, state, path string) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		c.Redirect(http.StatusTemporaryRedirect, path)
+		c.Redirect(http.StatusFound, path)
 	}
 }
 
@@ -72,7 +72,7 @@ func AuthCallbackHandler(cfg *oauth2.Config, state, path string) gin.HandlerFunc
 			return
 		}
 
-		c.Redirect(http.StatusTemporaryRedirect, path)
+		c.Redirect(http.StatusFound, path)
 	}
 }
 

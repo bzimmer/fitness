@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -86,7 +87,7 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 		ClientID:     c.String("client-id"),
 		ClientSecret: c.String("client-secret"),
 		Scopes:       []string{"read_all,profile:read_all,activity:read_all"},
-		RedirectURL:  baseURL + "/auth/callback",
+		RedirectURL:  baseURL + "/auth/callback/",
 		Endpoint:     strava.Endpoint}
 
 	u, err := url.Parse(baseURL)
@@ -102,11 +103,15 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 	base.GET("/", func(c *gin.Context) {
 		session := sessions.Default(c)
 		if session.Get("token") == nil {
-			c.Redirect(http.StatusTemporaryRedirect, base.BasePath()+"/auth/login")
+			c.Redirect(http.StatusTemporaryRedirect, base.BasePath()+"/auth/login/")
 			return
 		}
 		c.HTML(http.StatusOK, "index.html", gin.H{"path": u.Path})
 	})
+	if !strings.HasSuffix(baseURL, "/") {
+		baseURL += "/"
+	}
+	log.Info().Str("baseURL", baseURL).Msg("using baseURL for callbacks")
 	base.GET("/auth/login", fitness.LoginHandler(config, state))
 	base.GET("/auth/logout", fitness.LogoutHandler(config, state, baseURL))
 	base.GET("/auth/callback", fitness.AuthCallbackHandler(config, state, baseURL))
