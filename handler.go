@@ -71,7 +71,7 @@ func AuthCallbackHandler(cfg *oauth2.Config, state, path string) gin.HandlerFunc
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to save session value"})
 			return
 		}
-		c.Redirect(http.StatusFound, path)
+		c.Redirect(http.StatusTemporaryRedirect, path)
 	}
 }
 
