@@ -71,7 +71,7 @@
 <script>
 	$(document).ready(function () {
 		$.getJSON("/scoreboard", function (data) {
-			data.sort((a, b) => (a.week > b.week) ? 1 : -1)
+			data.sort((a, b) => (a.week - b.week));
 			$.each(data, function (key, value) {
 				var week = `<tr>
 					<td>${value.week}</td>
@@ -80,7 +80,10 @@
 					<td>${value.activities.length}</td>
 					</tr>`;
 				$('#scoreboard').append(week);
-				value.activities.sort((a, b) => (a.id > b.id) ? 1 : -1)
+			});
+			data.reverse();
+			$.each(data, function (key, value) {
+				value.activities.sort((a, b) => (b.id - a.id));
 				$.each(value.activities, function (key, value) {
 					var id = `<a href="https://www.strava.com/activities/${value.id}">` + value.id + `</a>`;
 					var act = `<tr>

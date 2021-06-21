@@ -12,6 +12,6 @@
         {"type": "Run",  "minutes": 120, "multiplier": 2.0}
     ],
     "calories": [
-        {"id":5497755660, "override":3594}
+        {"id": 5497755660, "override": 3594}
     ]
 }

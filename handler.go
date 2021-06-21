@@ -1,13 +1,17 @@
 package fitness
 
 import (
+	"context"
 	"net/http"
 	"time"
 
-	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
+	"github.com/aws/aws-lambda-go/events"
+	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
+
+	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
 )
 
 // LoginHandler redirects to the oauth provider's credential acceptance page
@@ -91,5 +95,12 @@ func ScoreboardHandler(clientID, clientSecret string, config *Config) gin.Handle
 			return
 		}
 		c.IndentedJSON(http.StatusOK, board)
+	}
+}
+
+func LambdaHandler(gl *ginadapter.GinLambda) interface{} {
+	return func(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+		// If no name is provided in the HTTP request body, throw an error
+		return gl.ProxyWithContext(ctx, req)
 	}
 }

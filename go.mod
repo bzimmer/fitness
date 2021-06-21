@@ -3,6 +3,8 @@ module github.com/bzimmer/fitness
 go 1.16
 
 require (
+	github.com/aws/aws-lambda-go v1.19.1
+	github.com/awslabs/aws-lambda-go-api-proxy v0.10.0
 	github.com/bzimmer/gravl v0.0.0-20210306232045-8b3bb27c9b96
 	github.com/gin-contrib/sessions v0.0.3
 	github.com/gin-gonic/gin v1.7.2

@@ -2,3 +2,7 @@
 fitness.sh
 challenge.json
 fitness
+functions
+
+# Local Netlify folder
+.netlify

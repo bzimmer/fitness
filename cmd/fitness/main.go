@@ -8,10 +8,14 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
+	"github.com/aws/aws-lambda-go/lambda"
+	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -25,13 +29,25 @@ import (
 )
 
 func config(c *cli.Context) (*fitness.Config, error) {
-	fp, err := os.Open(c.String("config"))
-	if err != nil {
-		return nil, err
+	var err error
+	var val []byte
+	switch c.IsSet("config") {
+	case true:
+		log.Info().Str("file", c.String("config")).Msg("config")
+		var fp *os.File
+		fp, err = os.Open(c.String("config"))
+		if err != nil {
+			return nil, err
+		}
+		defer fp.Close()
+		val, _ = io.ReadAll(fp)
+	case false:
+		log.Info().Str("file", "etc/scoreboard.json").Msg("config")
+		val, err = fitness.Content.ReadFile("etc/scoreboard.json")
+		if err != nil {
+			return nil, err
+		}
 	}
-	defer fp.Close()
-	val, _ := io.ReadAll(fp)
-
 	var cfg fitness.Config
 	err = json.Unmarshal(val, &cfg)
 	if err != nil {
@@ -49,7 +65,7 @@ func token(n int) (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-func newRouter(c *cli.Context) (*gin.Engine, error) {
+func newEngine(c *cli.Context) (*gin.Engine, error) {
 	cfg, err := config(c)
 	if err != nil {
 		return nil, err
@@ -59,24 +75,23 @@ func newRouter(c *cli.Context) (*gin.Engine, error) {
 		return nil, err
 	}
 
-	tmpl, err := template.ParseFS(fitness.Content, "templates/index.html")
+	t, err := template.ParseFS(fitness.Content, "templates/index.html")
 	if err != nil {
 		return nil, err
 	}
 
-	address := fmt.Sprintf("%s:%d", c.String("origin"), c.Int("port"))
+	store := cookie.NewStore([]byte(c.String("session-key")))
 	config := &oauth2.Config{
 		ClientID:     c.String("client-id"),
 		ClientSecret: c.String("client-secret"),
 		Scopes:       []string{"read_all,profile:read_all,activity:read_all"},
-		RedirectURL:  fmt.Sprintf("%s/auth/callback", address),
+		RedirectURL:  fmt.Sprintf("%s/auth/callback", c.String("base-url")),
 		Endpoint:     strava.Endpoint}
 
-	r := gin.Default()
-	store := cookie.NewStore([]byte("secret"))
-	r.Use(sessions.Sessions("default", store))
-	r.SetHTMLTemplate(tmpl)
-	r.GET("/", func(c *gin.Context) {
+	engine := gin.Default()
+	engine.Use(sessions.Sessions("default", store))
+	engine.SetHTMLTemplate(t)
+	engine.GET("/", func(c *gin.Context) {
 		session := sessions.Default(c)
 		if session.Get("token") == nil {
 			c.Redirect(http.StatusTemporaryRedirect, "/auth/login")
@@ -84,37 +99,43 @@ func newRouter(c *cli.Context) (*gin.Engine, error) {
 		}
 		c.HTML(http.StatusOK, "index.html", nil)
 	})
-	r.GET("/auth/login", fitness.LoginHandler(config, state))
-	r.GET("/auth/logout", fitness.LogoutHandler(config, state))
-	r.GET("/auth/callback", fitness.AuthCallbackHandler(config, state))
-	r.GET("/scoreboard", fitness.ScoreboardHandler(
-		config.ClientID, config.ClientSecret, cfg))
-	return r, nil
+	engine.GET("/auth/login", fitness.LoginHandler(config, state))
+	engine.GET("/auth/logout", fitness.LogoutHandler(config, state))
+	engine.GET("/auth/callback", fitness.AuthCallbackHandler(config, state))
+	engine.GET("/scoreboard", fitness.ScoreboardHandler(config.ClientID, config.ClientSecret, cfg))
+	return engine, nil
 }
 
 var serveCommand = &cli.Command{
 	Name:  "serve",
-	Usage: "Serve",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:  "origin",
-			Value: "http://localhost",
-			Usage: "Callback origin",
-		},
-		&cli.IntFlag{
-			Name:  "port",
-			Value: 9001,
-			Usage: "Port on which to listen",
-		},
-	},
+	Usage: "Serve via http",
 	Action: func(c *cli.Context) error {
-		mux, err := newRouter(c)
+		engine, err := newEngine(c)
 		if err != nil {
 			return err
 		}
-		address := fmt.Sprintf("0.0.0.0:%d", c.Int("port"))
+		u, err := url.Parse(c.String("base-url"))
+		if err != nil {
+			return err
+		}
+		_, port, _ := net.SplitHostPort(u.Host)
+		address := fmt.Sprintf("0.0.0.0:%s", port)
 		log.Info().Str("address", address).Msg("serving")
-		return http.ListenAndServe(address, mux)
+		return http.ListenAndServe(address, engine)
+	},
+}
+
+var lambdaCommand = &cli.Command{
+	Name:  "lambda",
+	Usage: "Serve via lambda functions",
+	Action: func(c *cli.Context) error {
+		engine, err := newEngine(c)
+		if err != nil {
+			return err
+		}
+		gl := ginadapter.New(engine)
+		lambda.Start(fitness.LambdaHandler(gl))
+		return nil
 	},
 }
 
@@ -137,10 +158,19 @@ func main() {
 				EnvVars:  []string{"STRAVA_CLIENT_SECRET"},
 			},
 			&cli.StringFlag{
-				Name:     "config",
-				Aliases:  []string{"c"},
+				Name:     "session-key",
 				Required: true,
-				Usage:    "file with configuration",
+				Usage:    "session keypair",
+				EnvVars:  []string{"FITNESS_SESSION_KEY"},
+			},
+			&cli.StringFlag{
+				Name:  "base-url",
+				Value: "http://localhost:9001",
+				Usage: "Base URL",
+			},
+			&cli.StringFlag{
+				Name:  "config",
+				Usage: "file with fitness configuration parameters",
 			},
 		},
 		ExitErrHandler: func(c *cli.Context, err error) {
@@ -163,6 +193,7 @@ func main() {
 			return nil
 		},
 		Commands: []*cli.Command{
+			lambdaCommand,
 			serveCommand,
 		},
 	}
