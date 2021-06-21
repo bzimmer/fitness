@@ -1,8 +1,6 @@
 .vscode
 fitness.sh
-challenge.json
-fitness
-functions
+functions/fitness
 
 # Local Netlify folder
 .netlify
