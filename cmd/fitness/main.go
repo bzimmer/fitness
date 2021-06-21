@@ -193,6 +193,13 @@ func main() {
 			)
 			return nil
 		},
+		Action: func(c *cli.Context) error {
+			// @fix(bzimmer)
+			if os.Getenv("NETLIFY") == "" {
+				return serveCommand.Action(c)
+			}
+			return lambdaCommand.Action(c)
+		},
 		Commands: []*cli.Command{
 			lambdaCommand,
 			serveCommand,
