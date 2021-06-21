@@ -5,3 +5,9 @@
 
 [build.environment]
 GO_VERSION="1.16"
+
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/fitness/:splat"
+  status = 200
+  force = true
