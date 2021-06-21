@@ -107,7 +107,7 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 		c.HTML(http.StatusOK, "index.html", nil)
 	})
 	base.GET("/auth/login", fitness.LoginHandler(config, state))
-	base.GET("/auth/logout", fitness.LogoutHandler(config, state))
+	base.GET("/auth/logout", fitness.LogoutHandler(config, state, c.String("base-url")))
 	base.GET("/auth/callback", fitness.AuthCallbackHandler(config, state, c.String("base-url")))
 	base.GET("/scoreboard", fitness.ScoreboardHandler(config.ClientID, config.ClientSecret, cfg))
 

@@ -23,7 +23,7 @@ func LoginHandler(cfg *oauth2.Config, state string) gin.HandlerFunc {
 }
 
 // LogoutHandler removes the token from the session
-func LogoutHandler(cfg *oauth2.Config, state string) gin.HandlerFunc {
+func LogoutHandler(cfg *oauth2.Config, state, path string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
 		session.Clear()
@@ -31,7 +31,7 @@ func LogoutHandler(cfg *oauth2.Config, state string) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		c.Redirect(http.StatusTemporaryRedirect, "/")
+		c.Redirect(http.StatusTemporaryRedirect, path)
 	}
 }
 
