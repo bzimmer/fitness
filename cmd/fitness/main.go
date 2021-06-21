@@ -87,7 +87,7 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 		ClientID:     c.String("client-id"),
 		ClientSecret: c.String("client-secret"),
 		Scopes:       []string{"read_all,profile:read_all,activity:read_all"},
-		RedirectURL:  baseURL + "/auth/callback/",
+		RedirectURL:  baseURL + "/auth/callback",
 		Endpoint:     strava.Endpoint}
 
 	u, err := url.Parse(baseURL)
@@ -103,7 +103,7 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 	base.GET("/", func(c *gin.Context) {
 		session := sessions.Default(c)
 		if session.Get("token") == nil {
-			path := baseURL + "/auth/login/"
+			path := baseURL + "/auth/login"
 			log.Info().Int("code", http.StatusFound).Str("path", path).Str("action", "to login").Msg("redirect")
 			c.Redirect(http.StatusFound, path)
 			return
@@ -111,8 +111,8 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 		c.HTML(http.StatusOK, "index.html", gin.H{"path": u.Path})
 	})
 	base.GET("/auth/login", fitness.LoginHandler(config, state))
-	base.GET("/auth/logout", fitness.LogoutHandler(config, state, baseURL+"/"))
-	base.GET("/auth/callback", fitness.AuthCallbackHandler(config, state, baseURL+"/"))
+	base.GET("/auth/logout", fitness.LogoutHandler(config, state, baseURL))
+	base.GET("/auth/callback", fitness.AuthCallbackHandler(config, state, baseURL))
 	base.GET("/scoreboard", fitness.ScoreboardHandler(config.ClientID, config.ClientSecret, cfg))
 
 	return engine, nil
