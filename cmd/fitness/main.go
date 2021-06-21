@@ -80,15 +80,16 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 		return nil, err
 	}
 
+	baseURL := c.String("base-url")
 	store := cookie.NewStore([]byte(c.String("session-key")))
 	config := &oauth2.Config{
 		ClientID:     c.String("client-id"),
 		ClientSecret: c.String("client-secret"),
 		Scopes:       []string{"read_all,profile:read_all,activity:read_all"},
-		RedirectURL:  fmt.Sprintf("%s/auth/callback", c.String("base-url")),
+		RedirectURL:  baseURL + "/auth/callback",
 		Endpoint:     strava.Endpoint}
 
-	u, err := url.Parse(c.String("base-url"))
+	u, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -104,11 +105,11 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 			c.Redirect(http.StatusTemporaryRedirect, base.BasePath()+"/auth/login")
 			return
 		}
-		c.HTML(http.StatusOK, "index.html", nil)
+		c.HTML(http.StatusOK, "index.html", gin.H{"path": u.Path})
 	})
 	base.GET("/auth/login", fitness.LoginHandler(config, state))
-	base.GET("/auth/logout", fitness.LogoutHandler(config, state, c.String("base-url")))
-	base.GET("/auth/callback", fitness.AuthCallbackHandler(config, state, c.String("base-url")))
+	base.GET("/auth/logout", fitness.LogoutHandler(config, state, baseURL))
+	base.GET("/auth/callback", fitness.AuthCallbackHandler(config, state, baseURL))
 	base.GET("/scoreboard", fitness.ScoreboardHandler(config.ClientID, config.ClientSecret, cfg))
 
 	return engine, nil

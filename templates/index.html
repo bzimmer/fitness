@@ -70,7 +70,7 @@
 
 <script>
 	$(document).ready(function () {
-		$.getJSON("/scoreboard", function (data) {
+		$.getJSON("{{ .path }}/scoreboard", function (data) {
 			data.sort((a, b) => (a.week - b.week));
 			$.each(data, function (key, value) {
 				var week = `<tr>
