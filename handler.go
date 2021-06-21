@@ -9,7 +9,6 @@ import (
 	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
 
 	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
@@ -19,7 +18,6 @@ import (
 func LoginHandler(cfg *oauth2.Config, state string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		u := cfg.AuthCodeURL(state)
-		log.Info().Int("code", http.StatusFound).Str("path", u).Str("action", "login").Msg("redirect")
 		c.Redirect(http.StatusFound, u)
 	}
 }
@@ -33,8 +31,7 @@ func LogoutHandler(cfg *oauth2.Config, state, path string) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		log.Info().Int("code", http.StatusTemporaryRedirect).Str("path", path).Str("action", "logout").Msg("redirect")
-		c.Redirect(http.StatusTemporaryRedirect, path)
+		c.Redirect(http.StatusFound, path)
 	}
 }
 
@@ -74,9 +71,7 @@ func AuthCallbackHandler(cfg *oauth2.Config, state, path string) gin.HandlerFunc
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to save session value"})
 			return
 		}
-
-		log.Info().Int("code", http.StatusTemporaryRedirect).Str("path", path).Str("action", "auth callback").Msg("redirect")
-		c.Redirect(http.StatusTemporaryRedirect, path)
+		c.Redirect(http.StatusFound, path)
 	}
 }
 
