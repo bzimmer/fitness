@@ -33,8 +33,8 @@ func LogoutHandler(cfg *oauth2.Config, state, path string) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		log.Info().Int("code", http.StatusTemporaryRedirect).Str("path", path).Str("action", "logout").Msg("redirect")
-		c.Redirect(http.StatusTemporaryRedirect, path)
+		log.Info().Int("code", http.StatusFound).Str("path", path).Str("action", "logout").Msg("redirect")
+		c.Redirect(http.StatusFound, path)
 	}
 }
 
@@ -75,8 +75,8 @@ func AuthCallbackHandler(cfg *oauth2.Config, state, path string) gin.HandlerFunc
 			return
 		}
 
-		log.Info().Int("code", http.StatusTemporaryRedirect).Str("path", path).Str("action", "auth callback").Msg("redirect")
-		c.Redirect(http.StatusTemporaryRedirect, path)
+		log.Info().Int("code", http.StatusFound).Str("path", path).Str("action", "auth callback").Msg("redirect")
+		c.Redirect(http.StatusFound, path)
 	}
 }
 
