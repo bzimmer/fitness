@@ -99,7 +99,7 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 	engine.GET(u.Path+"/", func(c *gin.Context) {
 		session := sessions.Default(c)
 		if session.Get("token") == nil {
-			c.Redirect(http.StatusTemporaryRedirect, "/auth/login")
+			c.Redirect(http.StatusTemporaryRedirect, u.Path+"/auth/login")
 			return
 		}
 		c.HTML(http.StatusOK, "index.html", nil)
