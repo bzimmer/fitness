@@ -71,7 +71,7 @@ func AuthCallbackHandler(cfg *oauth2.Config, state, path string) gin.HandlerFunc
 		session := sessions.Default(c)
 		session.Set("token", token.RefreshToken)
 		if err := session.Save(); err != nil {
-			c.AbortWithStatus(http.StatusInternalServerError)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to save session value"})
 			return
 		}
 

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -87,7 +86,7 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 		ClientID:     c.String("client-id"),
 		ClientSecret: c.String("client-secret"),
 		Scopes:       []string{"read_all,profile:read_all,activity:read_all"},
-		RedirectURL:  baseURL + "/auth/callback",
+		RedirectURL:  baseURL + "/callback",
 		Endpoint:     strava.Endpoint}
 
 	u, err := url.Parse(baseURL)
@@ -96,6 +95,7 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 	}
 
 	engine := gin.Default()
+	// @hack for working within netlify
 	engine.RedirectFixedPath = true
 	engine.RedirectTrailingSlash = false
 	engine.Use(sessions.Sessions("default", store))
@@ -103,21 +103,24 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 
 	base := engine.Group(u.Path)
 	base.GET("", func(c *gin.Context) {
-		c.Redirect(http.StatusFound, u.Path+"/")
+		c.Request.URL.Path = u.Path + "/"
+		engine.HandleContext(c)
 	})
 	base.GET("/", func(c *gin.Context) {
 		session := sessions.Default(c)
 		if session.Get("token") == nil {
-			path := u.Path + "/auth/login"
-			log.Info().Int("code", http.StatusFound).Str("path", path).Str("action", "to login").Msg("redirect")
-			c.Redirect(http.StatusFound, path)
+			// https://jastorey.me/blog/request-rewrite-in-gin/
+			// @hack for working within netlify
+			c.Request.URL.Path = u.Path + "/login"
+			engine.HandleContext(c)
+			c.Abort()
 			return
 		}
 		c.HTML(http.StatusOK, "index.html", gin.H{"path": u.Path})
 	})
-	base.GET("/auth/login", fitness.LoginHandler(config, state))
-	base.GET("/auth/logout", fitness.LogoutHandler(config, state, u.Path+"/"))
-	base.GET("/auth/callback", fitness.AuthCallbackHandler(config, state, u.Path+"/"))
+	base.GET("/login", fitness.LoginHandler(config, state))
+	base.GET("/logout", fitness.LogoutHandler(config, state, u.Path+"/"))
+	base.GET("/callback", fitness.AuthCallbackHandler(config, state, u.Path+"/"))
 	base.GET("/scoreboard", fitness.ScoreboardHandler(config.ClientID, config.ClientSecret, cfg))
 
 	return engine, nil
@@ -128,13 +131,8 @@ func serve(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	u, err := url.Parse(c.String("base-url"))
-	if err != nil {
-		return err
-	}
-	_, port, _ := net.SplitHostPort(u.Host)
-	address := fmt.Sprintf("0.0.0.0:%s", port)
-	log.Info().Str("address", address).Msg("serving")
+	address := fmt.Sprintf(":%d", c.Int("port"))
+	log.Info().Str("address", address).Msg("http server")
 	return http.ListenAndServe(address, engine)
 }
 
@@ -143,7 +141,7 @@ func function(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	log.Info().Msg("running function")
+	log.Info().Msg("lambda function")
 	gl := ginadapter.New(engine)
 	lambda.Start(fitness.LambdaHandler(gl))
 	return nil
@@ -175,15 +173,14 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:    "base-url",
-				Value:   "http://localhost:9001",
+				Value:   "http://localhost",
 				Usage:   "Base URL",
 				EnvVars: []string{"BASE_URL"},
 			},
-			&cli.BoolFlag{
-				Name:    "netlify",
-				Value:   false,
-				Usage:   "run as a netlify function",
-				EnvVars: []string{"NETLIFY"},
+			&cli.IntFlag{
+				Name:  "port",
+				Value: 0,
+				Usage: "port on which to run",
 			},
 			&cli.StringFlag{
 				Name:  "config",
@@ -210,10 +207,10 @@ func main() {
 			return nil
 		},
 		Action: func(c *cli.Context) error {
-			if c.IsSet("netlify") {
-				return function(c)
+			if c.IsSet("port") {
+				return serve(c)
 			}
-			return serve(c)
+			return function(c)
 		},
 	}
 	if err := app.RunContext(context.Background(), os.Args); err != nil {
