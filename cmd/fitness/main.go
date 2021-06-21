@@ -106,37 +106,30 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 	return engine, nil
 }
 
-var serveCommand = &cli.Command{
-	Name:  "serve",
-	Usage: "Serve via http",
-	Action: func(c *cli.Context) error {
-		engine, err := newEngine(c)
-		if err != nil {
-			return err
-		}
-		u, err := url.Parse(c.String("base-url"))
-		if err != nil {
-			return err
-		}
-		_, port, _ := net.SplitHostPort(u.Host)
-		address := fmt.Sprintf("0.0.0.0:%s", port)
-		log.Info().Str("address", address).Msg("serving")
-		return http.ListenAndServe(address, engine)
-	},
+func serve(c *cli.Context) error {
+	engine, err := newEngine(c)
+	if err != nil {
+		return err
+	}
+	u, err := url.Parse(c.String("base-url"))
+	if err != nil {
+		return err
+	}
+	_, port, _ := net.SplitHostPort(u.Host)
+	address := fmt.Sprintf("0.0.0.0:%s", port)
+	log.Info().Str("address", address).Msg("serving")
+	return http.ListenAndServe(address, engine)
 }
 
-var lambdaCommand = &cli.Command{
-	Name:  "lambda",
-	Usage: "Serve via lambda functions",
-	Action: func(c *cli.Context) error {
-		engine, err := newEngine(c)
-		if err != nil {
-			return err
-		}
-		gl := ginadapter.New(engine)
-		lambda.Start(fitness.LambdaHandler(gl))
-		return nil
-	},
+func function(c *cli.Context) error {
+	engine, err := newEngine(c)
+	if err != nil {
+		return err
+	}
+	log.Info().Msg("running function")
+	gl := ginadapter.New(engine)
+	lambda.Start(fitness.LambdaHandler(gl))
+	return nil
 }
 
 func main() {
@@ -169,6 +162,12 @@ func main() {
 				Usage:   "Base URL",
 				EnvVars: []string{"BASE_URL"},
 			},
+			&cli.BoolFlag{
+				Name:    "netlify",
+				Value:   false,
+				Usage:   "run as a netlify function",
+				EnvVars: []string{"NETLIFY"},
+			},
 			&cli.StringFlag{
 				Name:  "config",
 				Usage: "file with fitness configuration parameters",
@@ -194,15 +193,10 @@ func main() {
 			return nil
 		},
 		Action: func(c *cli.Context) error {
-			// @fix(bzimmer)
-			if os.Getenv("NETLIFY") == "" {
-				return serveCommand.Action(c)
+			if c.IsSet("netlify") {
+				return function(c)
 			}
-			return lambdaCommand.Action(c)
-		},
-		Commands: []*cli.Command{
-			lambdaCommand,
-			serveCommand,
+			return serve(c)
 		},
 	}
 	if err := app.RunContext(context.Background(), os.Args); err != nil {
