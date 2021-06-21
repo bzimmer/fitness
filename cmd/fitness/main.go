@@ -164,9 +164,10 @@ func main() {
 				EnvVars:  []string{"FITNESS_SESSION_KEY"},
 			},
 			&cli.StringFlag{
-				Name:  "base-url",
-				Value: "http://localhost:9001",
-				Usage: "Base URL",
+				Name:    "base-url",
+				Value:   "http://localhost:9001",
+				Usage:   "Base URL",
+				EnvVars: []string{"BASE_URL"},
 			},
 			&cli.StringFlag{
 				Name:  "config",
