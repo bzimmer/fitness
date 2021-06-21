@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-lambda-go/lambda"
@@ -82,6 +81,7 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 	}
 
 	baseURL := c.String("base-url")
+	log.Info().Str("baseURL", baseURL).Msg("found baseURL")
 	store := cookie.NewStore([]byte(c.String("session-key")))
 	config := &oauth2.Config{
 		ClientID:     c.String("client-id"),
@@ -103,15 +103,12 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 	base.GET("/", func(c *gin.Context) {
 		session := sessions.Default(c)
 		if session.Get("token") == nil {
-			log.Info().Str("path", base.BasePath()+"/auth/login/").Msg("redirecting to login")
-			c.Redirect(http.StatusTemporaryRedirect, base.BasePath()+"/auth/login/")
+			log.Info().Str("path", baseURL+"/auth/login/").Msg("redirecting to login")
+			c.Redirect(http.StatusTemporaryRedirect, baseURL+"/auth/login/")
 			return
 		}
 		c.HTML(http.StatusOK, "index.html", gin.H{"path": u.Path})
 	})
-	if !strings.HasSuffix(baseURL, "/") {
-		baseURL += "/"
-	}
 	log.Info().Str("baseURL", baseURL).Msg("using baseURL for callbacks")
 	base.GET("/auth/login", fitness.LoginHandler(config, state))
 	base.GET("/auth/logout", fitness.LogoutHandler(config, state, baseURL))
