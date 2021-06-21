@@ -96,18 +96,21 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 	engine := gin.Default()
 	engine.Use(sessions.Sessions("default", store))
 	engine.SetHTMLTemplate(t)
-	engine.GET(u.Path+"/", func(c *gin.Context) {
+
+	base := engine.Group(u.Path)
+	base.GET("/", func(c *gin.Context) {
 		session := sessions.Default(c)
 		if session.Get("token") == nil {
-			c.Redirect(http.StatusTemporaryRedirect, u.Path+"/auth/login")
+			c.Redirect(http.StatusTemporaryRedirect, base.BasePath()+"/auth/login")
 			return
 		}
 		c.HTML(http.StatusOK, "index.html", nil)
 	})
-	engine.GET(u.Path+"/auth/login", fitness.LoginHandler(config, state))
-	engine.GET(u.Path+"/auth/logout", fitness.LogoutHandler(config, state))
-	engine.GET(u.Path+"/auth/callback", fitness.AuthCallbackHandler(config, state))
-	engine.GET(u.Path+"/scoreboard", fitness.ScoreboardHandler(config.ClientID, config.ClientSecret, cfg))
+	base.GET("/auth/login", fitness.LoginHandler(config, state))
+	base.GET("/auth/logout", fitness.LogoutHandler(config, state))
+	base.GET("/auth/callback", fitness.AuthCallbackHandler(config, state, c.String("base-url")))
+	base.GET("/scoreboard", fitness.ScoreboardHandler(config.ClientID, config.ClientSecret, cfg))
+
 	return engine, nil
 }
 

@@ -36,7 +36,7 @@ func LogoutHandler(cfg *oauth2.Config, state string) gin.HandlerFunc {
 }
 
 // AuthCallbackHandler receives the callback from the oauth provider with the credentials
-func AuthCallbackHandler(cfg *oauth2.Config, state string) gin.HandlerFunc {
+func AuthCallbackHandler(cfg *oauth2.Config, state, path string) gin.HandlerFunc {
 	type form struct {
 		State string `form:"state" binding:"required"`
 		Code  string `form:"code" binding:"required"`
@@ -72,7 +72,7 @@ func AuthCallbackHandler(cfg *oauth2.Config, state string) gin.HandlerFunc {
 			return
 		}
 
-		c.Redirect(http.StatusTemporaryRedirect, "/")
+		c.Redirect(http.StatusTemporaryRedirect, path)
 	}
 }
 
