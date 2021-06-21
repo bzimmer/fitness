@@ -103,7 +103,7 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 
 	base := engine.Group(u.Path)
 	base.GET("", func(c *gin.Context) {
-		c.Redirect(http.StatusFound, "/")
+		c.Redirect(http.StatusFound, u.Path)
 	})
 	base.GET("/", func(c *gin.Context) {
 		session := sessions.Default(c)
