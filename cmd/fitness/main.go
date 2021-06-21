@@ -102,6 +102,9 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 	engine.SetHTMLTemplate(t)
 
 	base := engine.Group(u.Path)
+	base.GET("", func(c *gin.Context) {
+		c.Redirect(http.StatusFound, "/")
+	})
 	base.GET("/", func(c *gin.Context) {
 		session := sessions.Default(c)
 		if session.Get("token") == nil {
