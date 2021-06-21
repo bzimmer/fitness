@@ -96,6 +96,8 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 	}
 
 	engine := gin.Default()
+	engine.RedirectFixedPath = true
+	engine.RedirectTrailingSlash = false
 	engine.Use(sessions.Sessions("default", store))
 	engine.SetHTMLTemplate(t)
 
