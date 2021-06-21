@@ -105,7 +105,7 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 	base.GET("/", func(c *gin.Context) {
 		session := sessions.Default(c)
 		if session.Get("token") == nil {
-			path := "/auth/login"
+			path := u.Path + "/auth/login"
 			log.Info().Int("code", http.StatusFound).Str("path", path).Str("action", "to login").Msg("redirect")
 			c.Redirect(http.StatusFound, path)
 			return
@@ -113,8 +113,8 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 		c.HTML(http.StatusOK, "index.html", gin.H{"path": u.Path})
 	})
 	base.GET("/auth/login", fitness.LoginHandler(config, state))
-	base.GET("/auth/logout", fitness.LogoutHandler(config, state, u.Path))
-	base.GET("/auth/callback", fitness.AuthCallbackHandler(config, state, u.Path))
+	base.GET("/auth/logout", fitness.LogoutHandler(config, state, u.Path+"/"))
+	base.GET("/auth/callback", fitness.AuthCallbackHandler(config, state, u.Path+"/"))
 	base.GET("/scoreboard", fitness.ScoreboardHandler(config.ClientID, config.ClientSecret, cfg))
 
 	return engine, nil
