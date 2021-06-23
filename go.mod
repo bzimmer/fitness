@@ -11,4 +11,5 @@ require (
 	github.com/rs/zerolog v1.23.0
 	github.com/urfave/cli/v2 v2.3.0
 	golang.org/x/oauth2 v0.0.0-20210216194517-16ff1888fd2e
+	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
 )

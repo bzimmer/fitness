@@ -6,9 +6,15 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/bzimmer/gravl/pkg/providers/activity"
 	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
+)
+
+const (
+	n           = 100
+	concurrency = 25
 )
 
 type Scoreboard struct {
@@ -88,38 +94,67 @@ func (b *Scoreboard) Scoreboard(c context.Context, client *strava.Client) ([]*We
 	ctx, cancel := context.WithTimeout(c, 2*time.Minute)
 	defer cancel()
 
-	var ok bool
-	var scores []*Activity
-	var res *strava.ActivityResult
-	acts := client.Activity.Activities(ctx, activity.Pagination{Total: 100})
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case res, ok = <-acts:
-			if !ok {
-				return b.scoreboard(scores), nil
+	detc := make(chan *Activity, n)
+	sumc := make(chan *strava.Activity, n)
+
+	grp, ctx := errgroup.WithContext(ctx)
+	for i := 0; i < concurrency; i++ {
+		grp.Go(func() error {
+			for act := range sumc {
+				week := b.week(act)
+				if week == 0 {
+					continue
+				}
+				log.Info().Str("name", act.Name).Int64("id", act.ID).Msg("query")
+				act, err := client.Activity.Activity(ctx, act.ID)
+				if err != nil {
+					return err
+				}
+				detc <- &Activity{
+					ID:       act.ID,
+					Type:     act.Type,
+					Name:     act.Name,
+					Week:     week,
+					Score:    b.score(act),
+					Calories: b.calories(act),
+				}
 			}
-			if res.Err != nil {
-				return nil, res.Err
-			}
-			wk := b.week(res.Activity)
-			if wk == 0 {
-				continue
-			}
-			log.Info().Str("name", res.Activity.Name).Int64("id", res.Activity.ID).Msg("query")
-			act, err := client.Activity.Activity(ctx, res.Activity.ID)
-			if err != nil {
-				return nil, err
-			}
-			scores = append(scores, &Activity{
-				ID:       act.ID,
-				Type:     act.Type,
-				Name:     act.Name,
-				Week:     wk,
-				Score:    b.score(act),
-				Calories: b.calories(act),
-			})
-		}
+			return nil
+		})
 	}
+
+	err := func() error {
+		defer close(sumc)
+		acts := client.Activity.Activities(ctx, activity.Pagination{Total: n})
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case res, ok := <-acts:
+				if !ok {
+					return nil
+				}
+				if res.Err != nil {
+					return res.Err
+				}
+				sumc <- res.Activity
+			}
+		}
+	}()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if err := grp.Wait(); err != nil {
+		return nil, err
+	}
+
+	close(detc)
+
+	var scores []*Activity
+	for act := range detc {
+		scores = append(scores, act)
+	}
+	return b.scoreboard(scores), nil
 }
