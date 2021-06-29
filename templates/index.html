@@ -27,7 +27,6 @@
 			font-weight: bold;
 			border: 1px solid black;
 			padding: 10px;
-			text-align: center;
 		}
 
 		td {
@@ -58,7 +57,6 @@
 		<table id="scores">
 			<tr>
 				<th>Week</th>
-				<th>ID</th>
 				<th>Type</th>
 				<th>Name</th>
 				<th>Score</th>
@@ -85,12 +83,11 @@
 			$.each(data, function (key, value) {
 				value.activities.sort((a, b) => (b.id - a.id));
 				$.each(value.activities, function (key, value) {
-					var id = `<a href="https://www.strava.com/activities/${value.id}">` + value.id + `</a>`;
+					var name = `<a href="https://www.strava.com/activities/${value.id}">` + value.name + `</a>`;
 					var act = `<tr>
 						<td>${value.week}</td>
-						<td>${id}</td>
 						<td>${value.type}</td>
-						<td>${value.name}</td>
+						<td>${name}</td>
 						<td>${value.score}</td>
 						<td>${value.calories}</td>
 						</tr>`;
