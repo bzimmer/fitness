@@ -6,18 +6,19 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	ginadapter "github.com/awslabs/aws-lambda-go-api-proxy/gin"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
-	"github.com/gin-gonic/gin"
+	echoadapter "github.com/awslabs/aws-lambda-go-api-proxy/echo"
+	"github.com/gorilla/sessions"
+	"github.com/labstack/echo-contrib/session"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -64,7 +65,7 @@ func token(n int) (string, error) {
 	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-func newEngine(c *cli.Context) (*gin.Engine, error) {
+func newEngine(c *cli.Context) (*echo.Echo, error) {
 	cfg, err := config(c)
 	if err != nil {
 		return nil, err
@@ -74,14 +75,14 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 		return nil, err
 	}
 
-	t, err := template.ParseFS(fitness.Content, "templates/index.html")
+	baseURL := c.String("base-url")
+	log.Info().Str("baseURL", baseURL).Msg("found baseURL")
+	u, err := url.Parse(baseURL)
 	if err != nil {
 		return nil, err
 	}
+	log.Info().Str("path", u.Path).Msg("root path")
 
-	baseURL := c.String("base-url")
-	log.Info().Str("baseURL", baseURL).Msg("found baseURL")
-	store := cookie.NewStore([]byte(c.String("session-key")))
 	config := &oauth2.Config{
 		ClientID:     c.String("client-id"),
 		ClientSecret: c.String("client-secret"),
@@ -89,38 +90,17 @@ func newEngine(c *cli.Context) (*gin.Engine, error) {
 		RedirectURL:  baseURL + "/callback",
 		Endpoint:     strava.Endpoint}
 
-	u, err := url.Parse(baseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	engine := gin.Default()
-	// @hack for working within netlify
-	engine.RedirectFixedPath = true
-	engine.RedirectTrailingSlash = false
-	engine.Use(sessions.Sessions("default", store))
-	engine.SetHTMLTemplate(t)
+	engine := echo.New()
+	engine.Pre(middleware.RemoveTrailingSlash())
+	engine.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: "time=${time_rfc3339}, method=${method}, uri=${uri}, path=${path}, status=${status}\n",
+	}))
+	engine.Use(session.Middleware(sessions.NewCookieStore([]byte(c.String("session-key")))))
 
 	base := engine.Group(u.Path)
-	base.GET("", func(c *gin.Context) {
-		c.Request.URL.Path = u.Path + "/"
-		engine.HandleContext(c)
-	})
-	base.GET("/", func(c *gin.Context) {
-		session := sessions.Default(c)
-		if session.Get("token") == nil {
-			// https://jastorey.me/blog/request-rewrite-in-gin/
-			// @hack for working within netlify
-			c.Request.URL.Path = u.Path + "/login"
-			engine.HandleContext(c)
-			c.Abort()
-			return
-		}
-		c.HTML(http.StatusOK, "index.html", gin.H{"path": u.Path})
-	})
 	base.GET("/login", fitness.LoginHandler(config, state))
-	base.GET("/logout", fitness.LogoutHandler(config, state, u.Path+"/"))
-	base.GET("/callback", fitness.AuthCallbackHandler(config, state, u.Path+"/"))
+	base.GET("/logout", fitness.LogoutHandler(config, state, "/"))
+	base.GET("/callback", fitness.AuthCallbackHandler(config, state, "/"))
 	base.GET("/scoreboard", fitness.ScoreboardHandler(config.ClientID, config.ClientSecret, cfg))
 
 	return engine, nil
@@ -131,6 +111,7 @@ func serve(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	engine.Static("/", "public")
 	address := fmt.Sprintf(":%d", c.Int("port"))
 	log.Info().Str("address", address).Msg("http server")
 	return http.ListenAndServe(address, engine)
@@ -142,8 +123,10 @@ func function(c *cli.Context) error {
 		return err
 	}
 	log.Info().Msg("lambda function")
-	gl := ginadapter.New(engine)
-	lambda.Start(fitness.LambdaHandler(gl))
+	gl := echoadapter.New(engine)
+	lambda.Start(func(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+		return gl.ProxyWithContext(ctx, req)
+	})
 	return nil
 }
 
