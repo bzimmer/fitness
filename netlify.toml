@@ -1,0 +1,12 @@
+[build]
+  command = "GOOS=linux GOARCH=amd64 go build -o functions/fitness ./cmd/fitness/main.go"
+  publish = "public"
+  functions = "functions"
+
+[build.environment]
+  GO_VERSION="1.16"
+
+[[redirects]]
+  from = "/fitness/*"
+  to = "/.netlify/functions/fitness/:splat"
+  status = 200

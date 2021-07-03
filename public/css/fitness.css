@@ -1,0 +1,29 @@
+table {
+    margin: 0 auto;
+    font-size: large;
+    border: 1px solid black;
+    font-family: 'Courier';
+}
+
+h2 {
+    text-align: center;
+    color: #09253B;
+    font-size: xx-large;
+    font-family: 'Courier';
+}
+
+td {
+    background-color: rgba(217, 3, 103, 0.3);
+    border: 1px solid black;
+}
+
+th,
+td {
+    font-weight: bold;
+    border: 1px solid black;
+    padding: 10px;
+}
+
+td {
+    font-weight: lighter;
+}

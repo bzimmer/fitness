@@ -1,4 +1,6 @@
-.fitness.json
-challenge.html
-challenge.json
-fitness
+.vscode
+fitness.sh
+functions
+
+# Local Netlify folder
+.netlify
