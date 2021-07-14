@@ -13,6 +13,8 @@ import (
 	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
 )
 
+const sessionName = "fitness"
+
 // LoginHandler redirects to the oauth provider's credential acceptance page
 func LoginHandler(cfg *oauth2.Config, state string) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -24,7 +26,7 @@ func LoginHandler(cfg *oauth2.Config, state string) echo.HandlerFunc {
 // LogoutHandler removes the token from the session
 func LogoutHandler(cfg *oauth2.Config, state, path string) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		session, err := session.Get("session", c)
+		session, err := session.Get(sessionName, c)
 		if err != nil {
 			return err
 		}
@@ -55,7 +57,7 @@ func AuthCallbackHandler(cfg *oauth2.Config, state, path string) echo.HandlerFun
 			return err
 		}
 
-		session, err := session.Get("session", c)
+		session, err := session.Get(sessionName, c)
 		if err != nil {
 			// log the error but do nothing; a new session has been created
 			log.Error().Err(err).Msg("failed to find session")
@@ -72,9 +74,10 @@ func AuthCallbackHandler(cfg *oauth2.Config, state, path string) echo.HandlerFun
 	}
 }
 
+// ScoreboardHandler generates the scoreboard for the user
 func ScoreboardHandler(clientID, clientSecret string, config *Config) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		session, err := session.Get("session", c)
+		session, err := session.Get(sessionName, c)
 		if err != nil {
 			return err
 		}
