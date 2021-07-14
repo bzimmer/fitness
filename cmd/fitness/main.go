@@ -95,7 +95,15 @@ func newEngine(c *cli.Context) (*echo.Echo, error) {
 	engine.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "time=${time_rfc3339}, method=${method}, uri=${uri}, path=${path}, status=${status}\n",
 	}))
-	engine.Use(session.Middleware(sessions.NewCookieStore([]byte(c.String("session-key")))))
+	engine.HTTPErrorHandler = func(err error, c echo.Context) {
+		engine.DefaultHTTPErrorHandler(err, c)
+		log.Error().Err(err).Msg("error")
+	}
+
+	store := sessions.NewCookieStore([]byte(c.String("session-key")))
+	store.Options.HttpOnly = true
+	store.Options.Secure = true
+	engine.Use(session.Middleware(store))
 
 	base := engine.Group(u.Path)
 	base.GET("/login", fitness.LoginHandler(config, state))
