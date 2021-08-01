@@ -4,20 +4,24 @@ Compute Fitness Challenge weekly scores from Strava activities.
 
 ### running locally
 
-Use a script similar to:
+1. Install [Taskfile](https://taskfile.dev/#/taskfile_versions?id=version-3).
 
-```#! /bin/sh
-set -ex
+2. Create a `.fitness.env` configuration file:
 
-GIN_MODE=release \
-FITNESS_SESSION_KEY=<session key> \
-STRAVA_CLIENT_ID=<strava client id> \
-STRAVA_CLIENT_SECRET=<strave client secret> \
-BASE_URL=http://localhost:9010/fitness \
-go run cmd/fitness/main.go --port 9010
+```sh
+FITNESS_SESSION_KEY=<session key>
+STRAVA_CLIENT_ID=<strava client id>
+STRAVA_CLIENT_SECRET=<strave client secret>
+BASE_URL=http://localhost:9010/fitness
 ```
 
-Make the Strava API callback url is configured for the domain in the Strava settings.
+3. To run:
+
+```sh
+$ task fitness
+```
+
+Make sure the Strava API callback url is configured for the domain in the Strava settings.
 
 ### running at netlify
 

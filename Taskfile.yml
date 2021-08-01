@@ -1,0 +1,17 @@
+# https://taskfile.dev
+
+version: '3'
+
+dotenv: [".fitness.env"]
+
+tasks:
+  default:
+    cmds:
+      - task: fitness
+
+  fitness:
+    desc: Run fitness
+    env:
+      BASE_URL: http://localhost:9010/fitness
+    cmds:
+      - go run cmd/fitness/*.go --port 9010 {{.CLI_ARGS}}

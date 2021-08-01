@@ -1,6 +1,5 @@
-.vscode
-fitness.sh
 functions
+.fitness.env
 
 # Local Netlify folder
 .netlify
