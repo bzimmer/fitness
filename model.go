@@ -33,3 +33,15 @@ type Config struct {
 		Override int   `json:"override"`
 	} `json:"calories"`
 }
+
+func (c *Config) DateRange() (start time.Time, end time.Time) {
+	for _, week := range c.Weeks {
+		if start.IsZero() || week.Start.Before(start) {
+			start = week.Start
+		}
+		if end.IsZero() || week.End.After(end) {
+			end = week.End
+		}
+	}
+	return
+}

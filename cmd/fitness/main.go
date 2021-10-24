@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	echoadapter "github.com/awslabs/aws-lambda-go-api-proxy/echo"
+	"github.com/bzimmer/activity/strava"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo-contrib/session"
 	"github.com/labstack/echo/v4"
@@ -25,7 +26,6 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/bzimmer/fitness"
-	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
 )
 
 func config(c *cli.Context) (*fitness.Config, error) {
@@ -88,7 +88,7 @@ func newEngine(c *cli.Context) (*echo.Echo, error) {
 		ClientSecret: c.String("client-secret"),
 		Scopes:       []string{"read_all,profile:read_all,activity:read_all"},
 		RedirectURL:  baseURL + "/callback",
-		Endpoint:     strava.Endpoint}
+		Endpoint:     strava.Endpoint()}
 
 	engine := echo.New()
 	engine.Pre(middleware.RemoveTrailingSlash())

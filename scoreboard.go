@@ -8,8 +8,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/bzimmer/gravl/pkg/providers/activity"
-	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
+	"github.com/bzimmer/activity"
+	"github.com/bzimmer/activity/strava"
 )
 
 const (
@@ -125,7 +125,10 @@ func (b *Scoreboard) Scoreboard(c context.Context, client *strava.Client) ([]*We
 
 	err := func() error {
 		defer close(sumc)
-		acts := client.Activity.Activities(ctx, activity.Pagination{Total: n})
+		start, end := b.config.DateRange()
+		// yes this order is correct
+		opt := strava.WithDateRange(end.Add(time.Hour*24), start.Add(time.Hour*-24))
+		acts := client.Activity.Activities(ctx, activity.Pagination{Total: n}, opt)
 		for {
 			select {
 			case <-ctx.Done():

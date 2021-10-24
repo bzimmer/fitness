@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
 
-	"github.com/bzimmer/gravl/pkg/providers/activity/strava"
+	"github.com/bzimmer/activity/strava"
 )
 
 const sessionName = "fitness"
