@@ -1,5 +1,5 @@
-functions
 .fitness.env
+dist/
 
 # Local Netlify folder
 .netlify

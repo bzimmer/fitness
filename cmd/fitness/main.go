@@ -121,7 +121,7 @@ func serve(c *cli.Context) error {
 	}
 	engine.Static("/", "public")
 	address := fmt.Sprintf(":%d", c.Int("port"))
-	log.Info().Str("address", address).Msg("http server")
+	log.Info().Str("address", "http://localhost"+address).Msg("http server")
 	return http.ListenAndServe(address, engine)
 }
 

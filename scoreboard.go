@@ -94,45 +94,46 @@ func (b *Scoreboard) Scoreboard(c context.Context, client *strava.Client) ([]*We
 	ctx, cancel := context.WithTimeout(c, 2*time.Minute)
 	defer cancel()
 
-	detc := make(chan *Activity, n)
-	sumc := make(chan *strava.Activity, n)
+	var scores []*Activity
+	detailsc := make(chan *Activity)
+	activitiesc := make(chan *strava.Activity)
 
-	grp, ctx := errgroup.WithContext(ctx)
+	actgrp, actctx := errgroup.WithContext(ctx)
 	for i := 0; i < concurrency; i++ {
-		grp.Go(func() error {
-			for act := range sumc {
+		actgrp.Go(func() error {
+			for act := range activitiesc {
 				week := b.week(act)
 				if week == 0 {
 					continue
 				}
 				log.Info().Str("name", act.Name).Int64("id", act.ID).Msg("query")
-				act, err := client.Activity.Activity(ctx, act.ID)
+				details, err := client.Activity.Activity(actctx, act.ID)
 				if err != nil {
 					return err
 				}
-				detc <- &Activity{
-					ID:       act.ID,
-					Type:     act.Type,
-					Name:     act.Name,
+				detailsc <- &Activity{
+					ID:       details.ID,
+					Type:     details.Type,
+					Name:     details.Name,
 					Week:     week,
-					Score:    b.score(act),
-					Calories: b.calories(act),
+					Score:    b.score(details),
+					Calories: b.calories(details),
 				}
 			}
 			return nil
 		})
 	}
-
-	err := func() error {
-		defer close(sumc)
+	actgrp.Go(func() error {
+		defer close(activitiesc)
 		start, end := b.config.DateRange()
-		// yes this order is correct
+		log.Info().Time("start", start).Time("end", end).Msg("date range")
+		// yes, this order is correct
 		opt := strava.WithDateRange(end.Add(time.Hour*24), start.Add(time.Hour*-24))
-		acts := client.Activity.Activities(ctx, activity.Pagination{Total: n}, opt)
+		acts := client.Activity.Activities(actctx, activity.Pagination{Total: n}, opt)
 		for {
 			select {
-			case <-ctx.Done():
-				return ctx.Err()
+			case <-actctx.Done():
+				return actctx.Err()
 			case res, ok := <-acts:
 				if !ok {
 					return nil
@@ -140,24 +141,24 @@ func (b *Scoreboard) Scoreboard(c context.Context, client *strava.Client) ([]*We
 				if res.Err != nil {
 					return res.Err
 				}
-				sumc <- res.Activity
+				activitiesc <- res.Activity
 			}
 		}
-	}()
+	})
 
-	if err != nil {
+	detgrp, _ := errgroup.WithContext(ctx)
+	detgrp.Go(func() error {
+		defer close(detailsc)
+		return actgrp.Wait()
+	})
+	detgrp.Go(func() error {
+		for act := range detailsc {
+			scores = append(scores, act)
+		}
+		return nil
+	})
+	if err := detgrp.Wait(); err != nil {
 		return nil, err
-	}
-
-	if err := grp.Wait(); err != nil {
-		return nil, err
-	}
-
-	close(detc)
-
-	var scores []*Activity
-	for act := range detc {
-		scores = append(scores, act)
 	}
 	return b.scoreboard(scores), nil
 }

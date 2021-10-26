@@ -4,10 +4,30 @@ version: '3'
 
 dotenv: [".fitness.env"]
 
+vars:
+  CWD:
+    sh: git rev-parse --show-toplevel
+  APP:
+    sh: basename $PWD
+  PKG:
+    github.com/bzimmer/{{.APP}}
+  DIST:
+    "{{.CWD}}/dist"
+
 tasks:
   default:
     cmds:
       - task: fitness
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -rf {{.DIST}}
+
+  dist:
+    desc: Create dist directory
+    cmds:
+      - mkdir -p {{.DIST}}
 
   fitness:
     desc: Run fitness
@@ -15,3 +35,19 @@ tasks:
       BASE_URL: http://localhost:9010/fitness
     cmds:
       - go run cmd/fitness/*.go --port 9010 {{.CLI_ARGS}}
+
+  lint:
+    desc: Runs golint
+    cmds:
+      - golangci-lint -v run
+
+  snapshot:
+    desc: Build a snapshot
+    cmds:
+      - goreleaser release --snapshot --rm-dist
+
+  test:
+    desc: Run tests
+    deps: [dist]
+    cmds:
+      - go test {{.CLI_ARGS}} -race -count=1 -covermode atomic -coverprofile {{.DIST}}/coverage.txt {{.PKG}}

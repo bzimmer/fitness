@@ -26,12 +26,12 @@ func LoginHandler(cfg *oauth2.Config, state string) echo.HandlerFunc {
 // LogoutHandler removes the token from the session
 func LogoutHandler(cfg *oauth2.Config, state, path string) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		session, err := session.Get(sessionName, c)
+		sess, err := session.Get(sessionName, c)
 		if err != nil {
 			return err
 		}
-		session.Values = map[interface{}]interface{}{}
-		if err := session.Save(c.Request(), c.Response()); err != nil {
+		sess.Values = map[interface{}]interface{}{}
+		if err := sess.Save(c.Request(), c.Response()); err != nil {
 			return err
 		}
 		return c.Redirect(http.StatusFound, path)
@@ -57,16 +57,16 @@ func AuthCallbackHandler(cfg *oauth2.Config, state, path string) echo.HandlerFun
 			return err
 		}
 
-		session, err := session.Get(sessionName, c)
+		sess, err := session.Get(sessionName, c)
 		if err != nil {
 			// log the error but do nothing; a new session has been created
 			log.Error().Err(err).Msg("failed to find session")
-			if session == nil {
+			if sess == nil {
 				return err
 			}
 		}
-		session.Values["token"] = token.RefreshToken
-		if err := session.Save(c.Request(), c.Response()); err != nil {
+		sess.Values["token"] = token.RefreshToken
+		if err := sess.Save(c.Request(), c.Response()); err != nil {
 			log.Error().Err(err).Msg("failed to save session")
 			return err
 		}
@@ -77,11 +77,11 @@ func AuthCallbackHandler(cfg *oauth2.Config, state, path string) echo.HandlerFun
 // ScoreboardHandler generates the scoreboard for the user
 func ScoreboardHandler(clientID, clientSecret string, config *Config) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		session, err := session.Get(sessionName, c)
+		sess, err := session.Get(sessionName, c)
 		if err != nil {
 			return err
 		}
-		token, ok := session.Values["token"]
+		token, ok := sess.Values["token"]
 		if !ok {
 			return echo.NewHTTPError(http.StatusUnauthorized)
 		}
