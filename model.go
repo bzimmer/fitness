@@ -34,7 +34,7 @@ type Config struct {
 	} `json:"calories"`
 }
 
-func (c *Config) DateRange() (start time.Time, end time.Time) {
+func (c *Config) DateRange() (start, end time.Time) {
 	for _, week := range c.Weeks {
 		if start.IsZero() || week.Start.Before(start) {
 			start = week.Start
