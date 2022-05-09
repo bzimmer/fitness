@@ -1,30 +1,30 @@
 module github.com/bzimmer/fitness
 
-go 1.17
+go 1.18
 
 require (
-	github.com/aws/aws-lambda-go v1.27.0
-	github.com/awslabs/aws-lambda-go-api-proxy v0.11.0
-	github.com/bzimmer/activity v0.5.0
+	github.com/aws/aws-lambda-go v1.31.0
+	github.com/awslabs/aws-lambda-go-api-proxy v0.13.2
+	github.com/bzimmer/activity v0.6.0
 	github.com/gorilla/sessions v1.2.1
-	github.com/labstack/echo-contrib v0.11.0
-	github.com/labstack/echo/v4 v4.6.1
-	github.com/rs/zerolog v1.25.0
-	github.com/urfave/cli/v2 v2.3.0
-	golang.org/x/oauth2 v0.0.0-20211005180243-6b3c2da341f1
+	github.com/labstack/echo-contrib v0.12.0
+	github.com/labstack/echo/v4 v4.7.2
+	github.com/rs/zerolog v1.26.1
+	github.com/urfave/cli/v2 v2.6.0
+	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
 
 require (
-	github.com/bzimmer/httpwares v0.0.4 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.1 // indirect
+	github.com/bzimmer/httpwares v0.1.0 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect
-	github.com/labstack/gommon v0.3.0 // indirect
+	github.com/labstack/gommon v0.3.1 // indirect
 	github.com/martinlindhe/unit v0.0.0-20210313160520-19b60e03648d // indirect
-	github.com/mattn/go-colorable v0.1.11 // indirect
+	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/onsi/ginkgo v1.14.2 // indirect
@@ -32,15 +32,14 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/twpayne/go-geom v1.4.1 // indirect
 	github.com/twpayne/go-gpx v1.2.1 // indirect
-	github.com/twpayne/go-polyline v1.0.1 // indirect
+	github.com/twpayne/go-polyline v1.1.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
-	golang.org/x/net v0.0.0-20211020060615-d418f374d309 // indirect
-	golang.org/x/sys v0.0.0-20211025201205-69cdffdb9359 // indirect
+	golang.org/x/crypto v0.0.0-20220507011949-2cf3adece122 // indirect
+	golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4 // indirect
+	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
+	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
+	google.golang.org/protobuf v1.28.0 // indirect
 )
